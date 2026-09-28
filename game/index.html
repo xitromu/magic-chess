@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Волшебные шахматы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Balsamiq+Sans:wght@700&family=Nunito:wght@700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=block&text=%E2%99%9A%E2%99%9B%E2%99%9C%E2%99%9D%E2%99%9E%E2%99%9F">
+<style>
+:root{
+  --bg:#2A1F4E; --bg2:#3A2C66; --ink:#FFF7EC; --muted:#D3C8F2;
+  --light:#FFF1DA; --dark:#B89AE6; --frame:#6A45A3; --frame2:#46297A;
+  --accent:#FFC83D; --accent-sh:#C98F12; --hint:#FF5C8A; --piece-w:#FFFBF0; --piece-line:#2A1F4E; --piece-b:#2A2336;
+  --board: clamp(250px, min(calc(100vw - 32px), calc(100dvh - 270px)), 460px);
+  --n: 6;
+  --cell: calc(var(--board) / var(--n));
+  color-scheme: dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255,200,61,.10), transparent 40%),
+    radial-gradient(circle at 90% 85%, rgba(255,120,190,.16), transparent 45%),
+    var(--bg);
+  color:var(--ink); font-family:"Nunito", system-ui, sans-serif; font-weight:800;
+  -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none;
+  overflow-x:hidden;
+}
+.g{font-family:"Noto Sans Symbols 2","Segoe UI Symbol","DejaVu Sans",serif; font-weight:400; line-height:1}
+button{font:inherit; color:inherit; cursor:pointer; border:0; background:none}
+button:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
+#app{min-height:100%; display:flex; flex-direction:column; align-items:center; gap:12px; padding:12px 16px 20px; box-sizing:border-box; max-width:520px; margin:0 auto}
+
+/* top bar */
+.top{width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px}
+.chips{display:flex; gap:4px; flex:1; min-width:0; align-items:center}
+.seg{flex:1; height:10px; border-radius:6px; background:var(--bg2); border:1px solid rgba(255,255,255,.14); max-width:34px}
+.seg.done{background:var(--accent); border-color:var(--accent)}
+.seg.now{background:rgba(255,200,61,.35); border-color:var(--accent)}
+.partlbl{font-family:"Balsamiq Sans","Nunito",sans-serif; font-size:15px; color:var(--muted); margin-right:6px; white-space:nowrap}
+.chip{width:34px; height:34px; border-radius:50%; display:grid; place-items:center; background:var(--bg2); border:2px solid rgba(255,255,255,.12); font-size:24px; color:var(--muted)}
+.chip .g{font-size:21px; color:inherit}
+.chip.now{border-color:var(--accent); color:var(--ink); box-shadow:0 0 0 3px rgba(255,200,61,.25)}
+.chip.done{background:var(--accent); color:#3A2A05; border-color:var(--accent)}
+.chip.q{font-family:"Balsamiq Sans","Nunito",sans-serif; font-size:20px}
+.tools{display:flex; gap:6px}
+.iconbtn{width:40px; height:40px; border-radius:12px; background:var(--bg2); display:grid; place-items:center; border:2px solid rgba(255,255,255,.12)}
+.iconbtn svg{width:22px; height:22px; stroke:var(--ink); fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round}
+.iconbtn.off svg .wave{display:none}
+.iconbtn.off svg .x{display:inline}
+.iconbtn svg .x{display:none}
+
+/* narrator */
+.bubble{width:100%; display:flex; align-items:flex-end; gap:10px}
+.rex{font-size:52px; line-height:1; flex:none; transform-origin:50% 100%; animation:bob 2.4s ease-in-out infinite}
+.rex.talk{animation:talk .35s ease-in-out 4}
+.say{flex:1; position:relative; background:var(--ink); color:#2A1F4E; border-radius:18px; padding:12px 44px 12px 14px; font-size:clamp(16px, 4.4vw, 19px); line-height:1.3; min-height:48px; display:flex; align-items:center; text-align:left}
+.say::before{content:""; position:absolute; left:-9px; bottom:14px; border:10px solid transparent; border-right-color:var(--ink); border-left:0}
+.say .rep{position:absolute; right:6px; top:50%; transform:translateY(-50%); width:34px; height:34px; border-radius:50%; background:#E9DDB2; display:grid; place-items:center}
+.say .rep svg{width:18px; height:18px; stroke:#2A1F4E; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round}
+
+/* board */
+.frame{padding:9px; background:linear-gradient(var(--frame), var(--frame2)); border-radius:18px; box-shadow:0 8px 0 rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.18)}
+.board{position:relative; width:var(--board); height:var(--board); border-radius:10px; overflow:hidden}
+.cells{position:absolute; inset:0; display:grid; grid-template-columns:repeat(var(--n),1fr); grid-template-rows:repeat(var(--n),1fr)}
+.cell{position:relative; background:var(--light); padding:0; border-radius:0}
+.cell.dk{background:var(--dark)}
+.cell.goal{box-shadow:inset 0 0 0 3px rgba(255,200,61,.8)}
+.cell.danger::before{content:""; position:absolute; inset:0; background:rgba(235,60,60,.38); pointer-events:none}
+.cell.check::before{content:""; position:absolute; inset:0; background:radial-gradient(circle, rgba(255,40,40,.85) 0%, rgba(255,40,40,.35) 55%, transparent 75%); pointer-events:none}
+.cell.sel::before{content:""; position:absolute; inset:0; box-shadow:inset 0 0 0 4px var(--accent); background:rgba(255,200,61,.25); pointer-events:none}
+.cell.legal.castle::after{width:52%; height:52%; background:var(--accent); box-shadow:0 0 0 3px #fff, 0 0 12px 4px rgba(255,200,61,.8)}
+.cell.legal::after{content:""; position:absolute; left:50%; top:50%; width:30%; height:30%; transform:translate(-50%,-50%); border-radius:50%; background:var(--hint); box-shadow:0 0 0 3px #fff; animation:pulse 1.3s ease-in-out infinite; z-index:3; pointer-events:none}
+.cell.legal.cap::after{width:84%; height:84%; background:transparent; box-shadow:inset 0 0 0 5px var(--hint), 0 0 0 2px #fff}
+.layer{position:absolute; inset:0; pointer-events:none}
+.tok{position:absolute; left:0; top:0; width:calc(100% / var(--n)); height:calc(100% / var(--n)); display:grid; place-items:center; transition:transform .42s cubic-bezier(.3,.8,.3,1.1)}
+.tok .g{font-size:calc(var(--cell) * .8)}
+.tok.w .g{color:var(--piece-w); -webkit-text-stroke:calc(var(--cell) * .035) var(--piece-line); paint-order:stroke fill; filter:drop-shadow(0 3px 0 rgba(0,0,0,.28))}
+.tok.b .g{color:var(--piece-b); -webkit-text-stroke:1px rgba(255,255,255,.35); paint-order:stroke fill; filter:drop-shadow(0 3px 0 rgba(0,0,0,.25))}
+.tok.hero{z-index:2}
+.tok .g.emo{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; -webkit-text-stroke:0; font-size:calc(var(--cell) * .64); filter:drop-shadow(0 3px 0 rgba(0,0,0,.25))}
+.foes{display:flex; flex-direction:column; gap:8px; width:100%}
+.foe{display:flex; align-items:center; gap:10px; background:#EFE6FF; border-radius:16px; padding:8px 12px; box-shadow:0 4px 0 #BBA8E6; text-align:left; color:#2A1F4E}
+.foe .em{font-size:34px}
+.foe .nm{flex:1; font-size:17px; font-weight:900; line-height:1.15}
+.foe .st{font-size:13px; color:#B8860B; letter-spacing:1px}
+.opts{display:flex; gap:8px; justify-content:center; flex-wrap:wrap}
+.opt{padding:8px 14px; border-radius:999px; background:#EFE6FF; color:#2A1F4E; font-weight:900; font-size:15px; box-shadow:0 3px 0 #BBA8E6}
+.opt.on{background:var(--accent); box-shadow:0 3px 0 var(--accent-sh)}
+.tok.hero .g{display:block; animation:bob 1.8s ease-in-out infinite}
+.tok.item{font-size:calc(var(--cell) * .58); line-height:1}
+.tok.item span{display:block; animation:wiggle 2.2s ease-in-out infinite}
+.tok.gone{animation:pop .55s ease-out forwards}
+.tok.shake .g{animation:shake .4s}
+.tok.baby span{animation:none}
+
+.counter .tag{font-size:16px; font-family:"Balsamiq Sans","Nunito",sans-serif; background:var(--bg2); border:2px solid var(--accent); color:var(--ink); padding:4px 14px; border-radius:999px}
+.counter{display:flex; gap:10px; min-height:40px; align-items:center; justify-content:center; font-size:30px}
+.counter span{transition:opacity .3s, transform .3s}
+.counter .off{opacity:.25; transform:scale(.8)}
+
+/* overlay */
+.overlay{position:fixed; inset:0; background:rgba(24,14,48,.74); display:grid; place-items:center; padding:16px; z-index:20; -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px)}
+.card{width:100%; max-width:400px; background:var(--ink); color:#2A1F4E; border-radius:26px; padding:24px 20px 22px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px; box-shadow:0 10px 0 rgba(0,0,0,.25); animation:rise .35s ease-out; box-sizing:border-box; max-height:calc(100dvh - 32px); overflow:auto}
+.card h1,.card h2{font-family:"Balsamiq Sans","Nunito",sans-serif; margin:0; line-height:1.1; text-wrap:balance}
+.card h1{font-size:clamp(34px, 10vw, 44px); color:#6B36B8}
+.card h2{font-size:32px; color:#6B36B8}
+.card p{margin:0; font-size:18px; line-height:1.35; max-width:32ch; text-wrap:pretty}
+.card .small{font-size:14px; font-weight:700; color:#6B6385; line-height:1.4}
+.bigpiece{font-size:110px; color:var(--piece-w); -webkit-text-stroke:4px var(--piece-line); paint-order:stroke fill; animation:bob 1.8s ease-in-out infinite; filter:drop-shadow(0 5px 0 rgba(0,0,0,.2))}
+.row{display:flex; gap:6px; justify-content:center; align-items:flex-end; flex-wrap:wrap}
+.row .g{font-size:48px; color:var(--piece-w); -webkit-text-stroke:2.5px var(--piece-line); paint-order:stroke fill}
+.row .dino{font-size:44px}
+.cta{background:var(--accent); color:#3A2A05; font-size:22px; font-weight:900; padding:14px 34px; border-radius:999px; box-shadow:0 6px 0 var(--accent-sh); transition:transform .1s, box-shadow .1s; margin-top:4px}
+.cta.alt{background:#E9DDB2; box-shadow:0 6px 0 #BFAE77; font-size:19px}
+.parts{display:flex; flex-direction:column; gap:14px; width:100%; align-items:stretch}
+.parts .cta{display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1.15}
+.parts .cta small{font-size:14px; font-weight:800; opacity:.75}
+.cta:active{transform:translateY(4px); box-shadow:0 2px 0 var(--accent-sh)}
+.quizgrid{display:grid; grid-template-columns:repeat(var(--qn,5), 1fr); gap:6px; width:100%}
+.qbtn{aspect-ratio:1; border-radius:16px; background:var(--dark); display:grid; place-items:center; box-shadow:0 5px 0 #8D6CC4}
+.qbtn:nth-child(odd){background:#E9DDB2; box-shadow:0 5px 0 #BFAE77}
+.qbtn .g{font-size:min(13vw, 56px); color:var(--piece-w); -webkit-text-stroke:2.5px var(--piece-line); paint-order:stroke fill}
+.qbtn.yes{background:var(--accent); box-shadow:0 5px 0 var(--accent-sh)}
+.qbtn.no{animation:shake .4s}
+.fb{min-height:26px; font-size:17px; color:#6B36B8}
+.stars{font-size:28px; letter-spacing:2px}
+
+canvas#fx{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:30}
+
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5%)}}
+@keyframes talk{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(-6deg) scale(1.08)}}
+@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(.8)}}
+@keyframes wiggle{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+@keyframes pop{0%{opacity:1}40%{opacity:1; scale:1.5}100%{opacity:0; scale:.2}}
+@keyframes shake{0%,100%{translate:0}20%{translate:-10%}40%{translate:10%}60%{translate:-7%}80%{translate:7%}}
+@keyframes rise{from{transform:translateY(24px) scale(.96); opacity:0}to{transform:none; opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important; animation-iteration-count:1!important}
+  .tok{transition-duration:.12s}
+}
+</style>
+</head>
+<body>
+
+
+<div id="app">
+  <header class="top">
+    <div class="chips" id="chips"></div>
+    <div class="tools">
+      <button class="iconbtn" id="btnHome" aria-label="На главный экран">
+        <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg>
+      </button>
+      <button class="iconbtn" id="btnSound" aria-label="Выключить звук">
+        <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/><path class="x" d="M16 9l6 6M22 9l-6 6"/></svg>
+      </button>
+      <button class="iconbtn" id="btnRestart" aria-label="Начать задание заново">
+        <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="bubble">
+    <div class="rex" id="rex" aria-hidden="true">🐉</div>
+    <div class="say"><span id="task">Привет! Я дракончик Искра.</span>
+      <button class="rep" id="btnRepeat" aria-label="Повторить задание"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg></button>
+    </div>
+  </div>
+
+  <div class="frame"><div class="board" id="board"><div class="cells" id="cells"></div><div class="layer" id="layer"></div></div></div>
+  <div class="counter" id="counter" aria-live="polite"></div>
+</div>
+
+<div class="overlay" id="overlay" hidden><div class="card" id="card"></div></div>
+<canvas id="fx"></canvas>
+
+<script>window.DINO_CLIPS={};</script>
+<script>
+(function(){
+const VS='︎';
+const GLYPH={king:'♚', queen:'♛', rook:'♜', bishop:'♝', knight:'♞', pawn:'♟'};
+const NAME={king:'Король', queen:'Ферзь', rook:'Ладья', bishop:'Слон', knight:'Конь', pawn:'Пешка'};
+const RULE={
+  king:'Король ходит на одну клетку в любую сторону.',
+  rook:'Ладья ходит только прямо: вверх, вниз, влево или вправо.',
+  bishop:'Слон ходит только наискосок, по диагонали.',
+  queen:'Ферзь ходит и прямо, и наискосок. Но перепрыгивать через фигуры не умеет.',
+  knight:'Конь ходит буквой «Г»: две клетки прямо и одну вбок.',
+  pawn:'Пешка ходит только вперёд, а ест наискосок.'
+};
+const RIGHT={king:'Правильно! Это король.', rook:'Правильно! Это ладья.', bishop:'Правильно! Это слон.', queen:'Правильно! Это ферзь.', knight:'Правильно! Это конь.', pawn:'Правильно! Это пешка.'};
+const WRONG={king:'Это король. Попробуй ещё!', rook:'Это ладья. Попробуй ещё!', bishop:'Это слон. Попробуй ещё!', queen:'Это ферзь. Попробуй ещё!', knight:'Это конь. Попробуй ещё!', pawn:'Это пешка. Попробуй ещё!'};
+const PROMO={queen:'Ферзь! Самый сильный выбор.', rook:'Ладья! Хороший выбор.', bishop:'Слон! Тоже можно.', knight:'Конь! Прыгучий выбор.'};
+const S_BLACK='Это чёрная фигура. Мы играем белыми.';
+const S_DANGER='Туда нельзя, там опасно! Король попадёт под удар.';
+const S_NOMOVE='Этой фигуре сейчас некуда ходить.';
+const S_NOTMATE='Это ещё не мат: королю есть куда убежать. Попробуй другой ход.';
+const S_LOSE='Чёрные в этот раз оказались быстрее. Попробуем ещё раз!';
+const S_STUCK='Эта пешка упёрлась. Прямо пешка не ест!';
+const S_DRAW='Ничья! Никто не может ходить. Сыграем ещё раз!';
+const S_BPASS='Чёрным некуда ходить. Ходи ещё раз!';
+const S_WPASS='Тебе некуда ходить. Чёрные ходят ещё раз.';
+const S_NOTCASTLE='Это обычный ход. Попробуй рокировку: король шагает на две клетки к ладье.';
+
+/* ---------- random position helpers ---------- */
+const rnd=n=>Math.floor(Math.random()*n);
+const pick=a=>a[rnd(a.length)];
+const nm=(c,r,n)=>String.fromCharCode(97+c)+(n-r);
+function freeSquares(n,taken,filter){ const out=[]; for(let r=0;r<n;r++) for(let c=0;c<n;c++){ const k=c+','+r; if(!taken.has(k)&&(!filter||filter(c,r))) out.push([c,r]); } return out; }
+function takeRandom(n,count,taken,filter){ const res=[]; for(let i=0;i<count;i++){ const f=freeSquares(n,taken,filter); if(!f.length) break; const [c,r]=pick(f); taken.add(c+','+r); res.push(nm(c,r,n)); } return res; }
+
+const PARTS=[
+ { title:'Часть 1', name:'Знакомство с фигурами', finalTitle:'Шахматист!', levels:[
+  { N:6, lock:true, item:'🥚', after:'🐣', goal:'items', slideCollect:true, sym:'none',
+    gen(){ const t=new Set(), hc=rnd(6); t.add(hc+',5'); return {hero:nm(hc,5,6), w:{rook:[nm(hc,5,6)]}, items:takeRandom(6,3,t,(c,r)=>c!==hc&&r!==5)}; },
+    intro:'Это ладья. Она похожа на башню. Ладья ходит прямо: вверх, вниз, вправо и влево. Хоть на сколько клеток!',
+    task:'Собери ладьёй яйца дракончиков! Нажимай на розовые кружочки.',
+    win:'Ура! Все яйца нашлись, и из них вылупились дракончики!', pic:'🐣🐉🐣' },
+  { N:6, lock:true, item:'🍎', after:'💜', goal:'items', slideCollect:true, sym:'none',
+    gen(){ const t=new Set(), hc=rnd(6), col=(hc+5)%2; t.add(hc+',5'); return {hero:nm(hc,5,6), w:{bishop:[nm(hc,5,6)]}, items:takeRandom(6,3,t,(c,r)=>(c+r)%2===col&&r<5)}; },
+    intro:'Это слон. Слон ходит наискосок, вот так, по диагонали.',
+    task:'Единорог проголодался. Собери слоном все яблочки!',
+    win:'Молодец! Посмотри: слон всегда ходит по клеткам одного цвета.', pic:'🦄💜' },
+  { N:6, lock:true, goal:'capture', sym:'none',
+    gen(){ const t=new Set(), hc=rnd(6); t.add(hc+',5'); return {hero:nm(hc,5,6), w:{queen:[nm(hc,5,6)]}, b:{pawn:takeRandom(6,4,t,(c,r)=>r>=1&&r<=4)}}; },
+    intro:'Это ферзь, самая сильная фигура. Ферзь ходит и прямо, как ладья, и наискосок, как слон.',
+    task:'Съешь ферзём чёрные пешки: просто встань на их клетку!',
+    win:'Ура! Ферзь съел все чёрные пешки. Дракончики спасены!', pic:'🐉✨' },
+  { N:6, lock:true, item:'🦄', after:'💖', goal:'items', sym:'none',
+    gen(){ const t=new Set(), hc=1+rnd(4); t.add(hc+',5'); const fr=[hc-1,hc,hc+1].map(c=>{ t.add(c+',4'); return nm(c,4,6); });
+      return {hero:nm(hc,5,6), w:{knight:[nm(hc,5,6)], pawn:fr}, items:takeRandom(6,3,t,(c,r)=>r<4)}; },
+    intro:'Это конь. Он ходит буквой «Г» и умеет перепрыгивать через другие фигуры!',
+    task:'Конь скачет в гости к единорогам. Навести всех!',
+    win:'Отлично! Конь навестил всех единорогов!', pic:'🦄💖🦄' },
+  { N:6, lock:true, item:'👑', decor:true, goal:'promote', sym:'none',
+    gen(){ const x=rnd(6), s=x===0?1:x===5?-1:pick([-1,1]); return {hero:nm(x,4,6), w:{pawn:[nm(x,4,6)]}, b:{pawn:[nm(x,1,6),nm(x+s,1,6)]}, items:[nm(x+s,0,6)]}; },
+    intro:'Это пешка. Она маленькая, но смелая. Пешка ходит только вперёд на одну клетку, а в первый раз может шагнуть на две!',
+    task:'Доведи пешку до короны на самом верху доски.',
+    win:'Чудо! Пешка дошла до конца доски и превратилась в ферзя!', pic:'👑' }
+ ], quiz:[
+  {q:'Где конь? Он ходит буквой «Г».', a:'knight'},
+  {q:'Покажи ладью. Она похожа на башню.', a:'rook'},
+  {q:'Какая фигура самая сильная?', a:'queen'},
+  {q:'Кто ходит только вперёд?', a:'pawn'},
+  {q:'Кто ходит только наискосок?', a:'bishop'}
+ ], quizSet:['rook','bishop','queen','knight','pawn'],
+ final:'Теперь ты знаешь пять шахматных фигур: ладью, слона, ферзя, коня и пешку. Ты настоящий шахматист!' },
+
+ { title:'Часть 2', name:'Шах, мат и рокировка', finalTitle:'Чемпион!', levels:[
+  { N:6, item:'🥚', after:'🐣', goal:'items', tag:'король', sym:'none',
+    gen(){ const t=new Set(), hc=rnd(6); t.add(hc+',5'); return {hero:nm(hc,5,6), w:{king:[nm(hc,5,6)]}, items:takeRandom(6,3,t,(c,r)=>Math.max(Math.abs(c-hc),Math.abs(r-5))>=2)}; },
+    intro:'Это король, самая главная фигура. Король ходит на одну клетку в любую сторону.',
+    task:'Собери королём все яйца. Шаг за шагом!',
+    win:'Молодец! Король ходит медленно, зато во все стороны.', pic:'🐣👑🐣' },
+  { N:6, sym:'d4', variants:[ {hero:'c1', w:{king:['c1']}, b:{rook:['c6']}}, {hero:'d2', w:{king:['d2']}, b:{rook:['a2']}}, {hero:'b2', w:{king:['b2']}, b:{bishop:['e5']}} ],
+    goal:'escape', danger:true, tag:'шах',
+    intro:'Шах — это когда на короля нападают. Королю нельзя оставаться под шахом!',
+    task:'На короля напали. Красные клетки опасные. Уведи короля туда, где безопасно!',
+    win:'Ура! Король убежал от шаха.', pic:'👑💨' },
+  { N:6, sym:'d4', variants:[ {hero:'a1', w:{rook:['a1'], king:['f1']}, b:{king:['d5']}}, {hero:'b2', w:{rook:['b2'], king:['f2']}, b:{king:['e5']}}, {hero:'e1', w:{bishop:['e1'], king:['a1']}, b:{king:['c5']}} ],
+    goal:'check', tag:'шах',
+    intro:'А теперь мы сами поставим шах чёрному королю.',
+    task:'Поставь шах: напади своей фигурой на чёрного короля.',
+    fail:'Это ещё не шах. Твоя фигура должна напасть на короля.',
+    win:'Шах! Ты напал на короля.', pic:'⚡👑' },
+  { N:6, variants:[ {hero:'e4', w:{pawn:['e4'], king:['a1']}, b:{pawn:['e5'], rook:['d5'], king:['a6']}}, {hero:'c4', w:{pawn:['c4'], king:['f1']}, b:{pawn:['c5'], knight:['d5'], king:['f6']}} ],
+    goal:'promoteChoose', tag:'превращение',
+    intro:'Пешка, которая дошла до конца доски, превращается в любую фигуру. Только не в короля!',
+    task:'Доведи пешку до конца доски. Если дорогу закрыли, съешь чёрную фигуру наискосок.',
+    choose:'В кого превратить пешку? Выбирай!',
+    win:'Превращение! Пешка стала новой фигурой.', pic:'✨' },
+  { N:8, sym:'none', goal:'castle', tag:'рокировка',
+    gen(){ return Math.random()<.5 ? {hero:'e1', w:{king:['e1'], rook:['h1'], pawn:['f2','g2','h2']}, b:{king:['e8']}} : {hero:'e1', w:{king:['e1'], rook:['a1'], pawn:['a2','b2','c2']}, b:{king:['e8']}}; },
+    intro:'Рокировка — это особый ход. Король и ладья меняются местами, чтобы спрятать короля.',
+    task:'Нажми на жёлтый кружок: король шагнёт на две клетки к ладье, а ладья перепрыгнет через него.',
+    fail:S_NOTCASTLE,
+    win:'Ура! Рокировка. Король спрятался в замке.', pic:'🏰👑' },
+  { N:8, sym:'none', goal:'castle', tag:'рокировка',
+    gen(){ const blk=pick([{bishop:['f1']},{knight:['g1']},{bishop:['c1']},{knight:['b1']},{queen:['d1']}]);
+      const w={king:['e1'], rook:['a1','h1'], pawn:pick([['a2','b2','c2'],['f2','g2','h2'],['a2','b2','g2','h2']])}; Object.assign(w,blk); return {hero:'e1', w, b:{king:['e8']}}; },
+    intro:'Рокировка бывает короткая и длинная, в обе стороны. Но если между королём и ладьёй стоит фигура, туда рокироваться нельзя.',
+    task:'Одна дорога закрыта. Сделай рокировку в свободную сторону!',
+    fail:S_NOTCASTLE,
+    win:'Отлично! Ты нашёл свободную дорогу для рокировки.', pic:'🏰👑' },
+  { N:8, sym:'d4', variants:[ {hero:'b5', w:{knight:['b5'], king:['g1']}, b:{king:['e8'], rook:['a8']}, reply:['e8','e7']}, {hero:'d4', w:{knight:['d4'], king:['h1']}, b:{king:['g7'], rook:['c7']}, reply:['g7','g6']} ],
+    goal:'fork', tag:'вилка',
+    intro:'Конь умеет нападать сразу на две фигуры. Это называется вилка!',
+    task:'Найди клетку, откуда конь нападёт и на короля, и на ладью.',
+    fail:'Отсюда конь нападает не на всех. Ищи клетку, где он нападёт сразу на двоих!',
+    mid:'Вилка! Королю надо убегать, а ладья останется одна.',
+    task2:'Теперь съешь ладью конём!',
+    win:'Ура! Конь съел ладью. Вот какая хитрая вилка!', pic:'🍴🐉' },
+  { N:8, sym:'d4', variants:[ {hero:'d7', w:{queen:['d7'], king:['g6']}, b:{king:['h8']}}, {hero:'a6', w:{queen:['a6'], king:['e6']}, b:{king:['e8']}}, {hero:'b1', w:{queen:['b1'], king:['f7']}, b:{king:['h8']}} ],
+    goal:'mate', tag:'мат',
+    intro:'Мат — это шах, от которого король не может убежать. Кто поставил мат, тот победил!',
+    task:'Поставь мат ферзём. Твой король помогает.',
+    fail:S_NOTMATE,
+    win:'Мат! Ты победил!', pic:'🏆' },
+  { N:8, variants:[ {hero:'a1', w:{rook:['a1'], king:['g1'], pawn:['f2','g2','h2']}, b:{king:['g8'], pawn:['f7','g7','h7']}}, {hero:'d1', w:{rook:['d1'], king:['b1'], pawn:['a2','b2','c2']}, b:{king:['b8'], pawn:['a7','b7','c7']}} ],
+    goal:'mate', tag:'мат',
+    intro:'Иногда король сам себя запирает своими пешками.',
+    task:'Поставь мат ладьёй на последней линии.',
+    fail:S_NOTMATE,
+    win:'Мат! Чёрные пешки заперли своего короля.', pic:'🏆' },
+  { N:8, sym:'d4', variants:[ {hero:'b1', w:{rook:['a7','b1'], king:['g3']}, b:{king:['e8']}}, {hero:'h2', w:{rook:['h2','a7'], king:['c3']}, b:{king:['d8']}} ],
+    goal:'mate', tag:'мат',
+    intro:'Две ладьи ставят мат лесенкой: одна держит линию, а другая ставит мат.',
+    task:'Поставь мат двумя ладьями!',
+    fail:S_NOTMATE,
+    win:'Мат лесенкой! Ты настоящий чемпион!', pic:'🏆🐉' }
+ ], quiz:[
+  {q:'Где король? Он самый главный.', a:'king'},
+  {q:'С какой фигурой король делает рокировку?', a:'rook'},
+  {q:'В кого лучше всего превратить пешку?', a:'queen'},
+  {q:'Кто умеет делать вилку и прыгать через фигуры?', a:'knight'}
+ ], quizSet:['king','queen','rook','bishop','knight','pawn'],
+ final:'Ты научился шаху, мату, рокировке и превращению пешки. Ты настоящий шахматист!' },
+
+ { title:'Часть 3', name:'Пешечный бой', finalTitle:'Мастер пешек!', levels:[
+  { N:6, variants:[ {hero:'a1', w:{rook:['a1']}, b:{knight:['a5'], pawn:['b6'], bishop:['e1']}}, {hero:'f2', w:{rook:['f2']}, b:{bishop:['c2'], pawn:['d3'], knight:['f5']}} ],
+    goal:'safeCapture', tag:'защита',
+    intro:'Фигура под защитой, если её охраняет другая фигура. Ешь только тех, кого никто не охраняет!',
+    task:'Съешь ладьёй чёрную фигуру, которую никто не защищает.',
+    fail:'Съешь чёрную фигуру, которую никто не защищает.',
+    failProt:'Ой! Эту фигуру защищает пешка. Нашу ладью съедят!',
+    win:'Молодец! Ты съел фигуру и остался цел.', pic:'🛡️🦄' },
+  { N:6, variants:[ {hero:'a1', w:{rook:['a1']}, b:{pawn:['c4','e5']}, items:['f1','f3','a3']}, {hero:'f1', w:{rook:['f1']}, b:{pawn:['b5','d4']}, items:['a1','a5','e2']} ],
+    item:'🥚', after:'🐣', goal:'items', danger:true, safeLand:true, tag:'осторожно',
+    intro:'Пешки бьют наискосок вперёд. Красные клетки опасные: туда вставать нельзя.',
+    task:'Собери ладьёй яйца, но не вставай на красные клетки!',
+    fail:'Туда нельзя: красную клетку бьёт пешка!',
+    win:'Отлично! Ты обошёл все ловушки.', pic:'🐣🐉🐣' },
+  { N:6, variants:[ {hero:'d3', w:{bishop:['d3']}, b:{pawn:['e4','f5']}}, {hero:'c2', w:{knight:['c2']}, b:{pawn:['d3','e4']}}, {hero:'b3', w:{rook:['b3']}, b:{pawn:['c4','d5']}} ],
+    goal:'safeAll', danger:true, tag:'убегай',
+    intro:'Если на твою фигуру напали, её нужно спасать.',
+    task:'Чёрная пешка напала на твою фигуру. Уведи её на безопасную клетку!',
+    fail:'Здесь фигуру всё ещё могут съесть. Найди безопасную клетку!',
+    win:'Ура! Фигура в безопасности.', pic:'💨🦄' },
+  { N:6, variants:[ {hero:'e3', w:{pawn:['b3','e3']}, b:{knight:['c4'], pawn:['f4']}}, {hero:'b2', w:{pawn:['b2','d3','f2']}, b:{knight:['e4'], pawn:['c3']}} ],
+    goal:'captureType', target:'knight', tag:'пешка ест',
+    intro:'Пешка маленькая, но может съесть даже большую фигуру.',
+    task:'Съешь пешкой чёрного коня. Выбери правильную пешку!',
+    fail:'Нужно съесть пешкой коня. Пешка ест наискосок!',
+    win:'Ура! Маленькая пешка съела коня.', pic:'💪🦄' },
+  { N:6, variants:[ {hero:'d3', w:{pawn:['d3']}, b:{pawn:['c4','e4','b5']}}, {hero:'c2', w:{pawn:['c2','e3']}, b:{pawn:['d3','f4','e4']}} ],
+    goal:'safeCapture', tag:'защита',
+    intro:'Пешки защищают друг друга, если стоят наискосок, лесенкой.',
+    task:'Съешь ту чёрную пешку, которую никто не защищает.',
+    fail:'Съешь пешку, которую никто не защищает.',
+    failProt:'Ой! Эту пешку защищает другая пешка.',
+    win:'Правильно! Эту пешку никто не охранял.', pic:'🛡️🦄' },
+  { N:6, item:'👑', decor:true, goal:'promote', tag:'дорога', sym:'none',
+    gen(){ const base=pick([0,1]), cols=[base,base+2,base+4], free=pick(cols); const w=[], b=[];
+      cols.forEach(c=>{ w.push(nm(c,3,6)); if(c!==free) b.push(nm(c,2,6)); });
+      return {hero:nm(cols[0]===free?cols[1]:cols[0],3,6), w:{pawn:w}, b:{pawn:b}, items:[nm(free,0,6)]}; },
+    intro:'Если пешка упёрлась в другую пешку, она дальше не пройдёт.',
+    task:'Найди пешку со свободной дорогой и доведи её до короны!',
+    win:'Ура! Свободная пешка дошла до конца и стала ферзём.', pic:'👑' },
+  { N:6, variants:[ {hero:'c2', w:{pawn:['c2','d4','e2']}, b:{knight:['e6']}, target:'d4'}, {hero:'b2', w:{pawn:['b2','c4','d2']}, b:{knight:['e5']}, target:'c4'} ],
+    goal:'defend', danger:true, tag:'защита',
+    intro:'Пешки держатся за руки: одна пешка защищает другую, если стоит наискосок позади неё.',
+    task:'Чёрный конь напал на пешку. Защити её другой пешкой!',
+    fail:'Эту пешку пока никто не защищает. Поставь другую пешку наискосок позади неё.',
+    win:'Отлично! Теперь пешки держатся за руки.', pic:'🤝🦄' },
+  { N:6, variants:[ {hero:'d2', w:{pawn:['d2']}, b:{rook:['c4'], knight:['e4']}, reply:['c4','c1']}, {hero:'c3', w:{pawn:['c3','f2']}, b:{knight:['b5'], rook:['d5']}, reply:['d5','d6']} ],
+    goal:'fork', forker:'pawn', targets:['rook','knight'], tag:'вилка',
+    intro:'Пешка тоже умеет делать вилку: нападать сразу на две фигуры.',
+    task:'Сделай пешечную вилку: напади сразу на ладью и на коня!',
+    fail:'Отсюда пешка нападает не на обоих. Попробуй другой ход!',
+    mid:'Пешечная вилка! Пешка напала сразу на двоих.',
+    task2:'Ладья убежала. Съешь коня пешкой!',
+    win:'Ура! Пешечная вилка сработала.', pic:'🍴🐉' },
+  { N:6, variants:[ {hero:'d3', w:{pawn:['d3']}, b:{pawn:['e5']}, pre:['e5','e3']}, {hero:'b3', w:{pawn:['b3','e2']}, b:{pawn:['c5','f5']}, pre:['c5','c3']} ],
+    goal:'ep', tag:'на проходе',
+    intro:'Есть хитрое правило: взятие на проходе. Если чужая пешка прыгнула на две клетки и встала рядом с твоей, её можно съесть так, будто она шагнула на одну.',
+    task:'Чёрная пешка прыгнула на две клетки. Съешь её на проходе!',
+    fail:'Попробуй взятие на проходе: шагни наискосок за чёрную пешку.',
+    win:'Ура! Ты съел пешку на проходе. Это настоящий шахматный секрет!', pic:'🤫🦄' },
+  { N:6, lock:true, variants:[ {hero:'b3', w:{pawn:['b3']}, b:{king:['f2']}, items:['b6']}, {hero:'c2', w:{pawn:['c2']}, b:{king:['f1']}, items:['c6']} ],
+    item:'👑', decor:true, goal:'promote', ai:true, noise:0, tag:'гонка',
+    intro:'Теперь чёрный король будет ходить сам. Он хочет поймать пешку!',
+    task:'Беги пешкой вперёд, пока король не догнал!',
+    lose:'Король догнал пешку! Попробуем ещё раз.',
+    win:'Ура! Король не догнал пешку.', pic:'🏃👑' },
+  { N:6, lock:true, variants:[ {hero:'a2', w:{pawn:['a2']}, b:{pawn:['f5']}}, {hero:'b2', w:{pawn:['b2']}, b:{pawn:['e5']}} ],
+    goal:'battle', ai:true, noise:0, tag:'гонка',
+    intro:'Гонка пешек! Твоя пешка и чёрная бегут навстречу. Кто первым добежит до конца доски, тот победил.',
+    task:'Беги пешкой до конца доски быстрее чёрной!',
+    lose:'Чёрная пешка успела первой! Подсказка: в первый раз пешка может шагнуть на две клетки.',
+    win:'Ура! Ты выиграл гонку пешек.', pic:'🏁🦄' },
+  { N:6, variants:[ {hero:'b2', w:{pawn:['b2','d2']}, b:{pawn:['c5','e5']}}, {hero:'c2', w:{pawn:['c2','e2']}, b:{pawn:['b5','d5']}} ],
+    goal:'battle', ai:true, noise:70, danger:true, tag:'бой 2 на 2',
+    intro:'Пешечный бой! Играют только пешки, ходим по очереди. Кто первым доведёт пешку до конца доски, тот победил.',
+    task:'Играем пешками по очереди. Красные клетки бьют чёрные пешки. Доведи пешку до конца!',
+    win:'Ура! Ты выиграл пешечный бой.', pic:'⚔️🦄' },
+  { N:6, variants:[ {hero:'c2', w:{pawn:['b2','c2','d2']}, b:{pawn:['c5','d5','e5']}}, {hero:'d2', w:{pawn:['c2','d2','e2']}, b:{pawn:['a5','b5','c5']}} ],
+    goal:'battle', ai:true, noise:55, danger:true, tag:'бой 3 на 3',
+    intro:'Пешек стало больше. Береги их и ешь чужие!',
+    task:'Пешечный бой три на три. Доведи пешку до конца доски!',
+    win:'Победа! Три на три, и ты сильнее.', pic:'⚔️🐉' },
+  { N:6, variants:[ {hero:'b2', w:{pawn:['a4','b2','e2']}, b:{knight:['c5']}, target:'a4'}, {hero:'e2', w:{pawn:['f4','e2','b2']}, b:{knight:['d5']}, target:'f4'} ],
+    goal:'defend', danger:true, tag:'у бортика',
+    intro:'Крайняя пешка стоит у бортика. Ей труднее всего: помочь ей может только одна соседка.',
+    task:'Конь напал на крайнюю пешку у бортика. Защити её!',
+    fail:'Крайнюю пешку может защитить только соседка. Поставь её наискосок позади.',
+    win:'Молодец! Соседка защитила крайнюю пешку.', pic:'🤝🦄' },
+  { N:6, variants:[ {hero:'a2', w:{pawn:['a2','c2','e3']}, b:{pawn:['b5','c5']}}, {hero:'c2', w:{pawn:['a2','c2','f3']}, b:{pawn:['b5','d5']}} ],
+    goal:'battle', ai:true, noise:30, firstPassed:true, danger:true, tag:'проходная',
+    intro:'Проходная пешка — это пешка, которой никто не мешает: впереди и по бокам нет чужих пешек. Она может добежать до конца доски!',
+    task:'Найди проходную пешку, сделай ей ход и доведи до конца!',
+    fail:'Этой пешке мешают чёрные пешки. Найди проходную: у неё впереди и по бокам пусто.',
+    mid:'Правильно, это проходная! Беги к концу доски!',
+    lose:'Чёрные успели. Подсказка: веди вперёд проходную пешку.',
+    win:'Ура! Проходная пешка добежала и стала ферзём!', pic:'🏃🦄' },
+  { N:6, variants:[ {hero:'d3', w:{pawn:['d3','a2']}, b:{pawn:['c5','f5']}, pre:['c5','c3']}, {hero:'c3', w:{pawn:['c3','f2']}, b:{pawn:['d5','a5']}, pre:['d5','d3']} ],
+    goal:'ep', tag:'на проходе',
+    intro:'Чёрная пешка хочет убежать мимо твоей, прыгнув на две клетки. Но её можно поймать на проходе!',
+    task:'Не дай ей убежать! Съешь её на проходе!',
+    fail:'Если не съесть её сейчас, она убежит! Бери на проходе.',
+    win:'Поймал! Теперь ты знаешь секрет взятия на проходе.', pic:'🤫🐉' },
+  { N:6, variants:[ {hero:'c2', w:{pawn:['b2','c2','d2']}, b:{pawn:['b5','e5']}}, {hero:'d2', w:{pawn:['c2','d2','e2']}, b:{pawn:['b5','e5']}} ],
+    goal:'battle', ai:true, noise:40, danger:true, tag:'вместе',
+    intro:'Пешки сильнее, когда стоят рядом и защищают друг друга, лесенкой. Одинокую пешку легко съесть.',
+    task:'Двигай пешки вместе, чтобы они защищали друг друга. Доведи пешку до конца!',
+    lose:'Подсказка: двигай пешки вместе, чтобы они защищали друг друга.',
+    win:'Отлично! Дружные пешки победили.', pic:'🤝🐉' },
+  { N:6, variants:[ {hero:'c2', w:{pawn:['a2','b2','c2','d2']}, b:{pawn:['c5','d5','e5','f5']}}, {hero:'d2', w:{pawn:['c2','d2','e2','f2']}, b:{pawn:['a5','b5','c5','d5']}} ],
+    goal:'battle', ai:true, noise:50, danger:true, tag:'бой 4 на 4',
+    intro:'Бой четыре на четыре. Красные подсказки пока остаются.',
+    task:'Пешечный бой четыре на четыре. Держи пешки вместе и ищи проходную!',
+    win:'Победа! Ты готов к большим боям.', pic:'⚔️🦄' },
+  { N:6, hero:'c2', w:{pawn:['a2','b2','c2','d2','e2','f2']}, b:{pawn:['a5','b5','c5','d5','e5','f5']}, goal:'battle', ai:true, noise:65, tag:'бой 6 на 6',
+    intro:'Теперь полный ряд пешек, и красных подсказок больше нет. Думай сам!',
+    task:'Пешечный бой шесть на шесть. Вперёд!',
+    lose:'Чёрные в этот раз оказались быстрее. Подсказка: держи пешки вместе и ищи проходную!',
+    win:'Победа! Ты настоящий пешечный боец.', pic:'🏆🦄' },
+  { N:8, hero:'e2', w:{pawn:['a2','b2','c2','d2','e2','f2','g2','h2']}, b:{pawn:['a7','b7','c7','d7','e7','f7','g7','h7']}, goal:'battle', ai:true, noise:55, tag:'большой бой',
+    intro:'Большой пешечный бой на настоящей доске: восемь пешек против восьми!',
+    task:'Большой пешечный бой. Доведи пешку до конца доски!',
+    lose:'Чёрные в этот раз оказались быстрее. Подсказка: держи пешки вместе и ищи проходную!',
+    win:'Невероятно! Ты выиграл большой пешечный бой!', pic:'🏆🐉🏆' }
+ ], quiz:null,
+ final:'Ты научился защищать фигуры, делать вилки, брать на проходе и выиграл пешечный бой. Ты мастер пешек!' },
+ { title:'Часть 4', name:'Бой с соперником', engineMode:true, levels:[], quiz:null, final:'' }
+];
+
+const $=s=>document.getElementById(s);
+const cellsEl=$('cells'), layer=$('layer'), taskEl=$('task'), rexEl=$('rex'), counterEl=$('counter'), overlay=$('overlay'), card=$('card');
+let st={part:0, level:0, screen:'start', stage:0};
+let N=6, L=null, pieces=[], items=[], sel=null, moves=[], busy=false, epPawn=null, aiTimer=null;
+let done=[[],[],[],[]];
+try{ const d=JSON.parse(localStorage.getItem('magic-chess')||'null'); if(d&&Array.isArray(d.done)) done=d.done; }catch(e){}
+while(done.length<4) done.push([]);
+function saveDone(){ try{ localStorage.setItem('magic-chess', JSON.stringify({done})); }catch(e){} }
+
+/* ---------- sound ---------- */
+let muted=false, unlocked=false;
+let CLIPS=window.DINO_CLIPS||{};
+function hkey(s){ let x=5381; for(let i=0;i<s.length;i++) x=((x*33)^s.charCodeAt(i))>>>0; return x.toString(16); }
+const voice=new Audio(); voice.preload='auto';
+const SFX={};
+function loadSfx(){ ['move','collect','capture','wrong','win','magic'].forEach(n=>{ if(CLIPS['sfx_'+n]&&!SFX[n]){ const a=new Audio(CLIPS['sfx_'+n]); a.preload='auto'; SFX[n]=a; } }); }
+loadSfx();
+try{ fetch('clips.json').then(r=>r.ok?r.json():null).then(d=>{ if(d){ CLIPS=d; loadSfx(); if(unlocked){ unlocked=false; unlock(); } } }).catch(()=>{}); }catch(e){}
+const canSpeak='speechSynthesis' in window && typeof SpeechSynthesisUtterance!=='undefined';
+function speakFallback(t){ if(!canSpeak) return; try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t.replace(/[«»]/g,'')); u.lang='ru-RU'; u.rate=.92; speechSynthesis.speak(u);}catch(e){} }
+function unlock(){ if(unlocked) return; unlocked=true;
+  Object.values(SFX).forEach(a=>{ try{ a.muted=true; const p=a.play(); if(p&&p.then) p.then(()=>{a.pause(); a.currentTime=0; a.muted=false;}).catch(()=>{a.muted=false;}); }catch(e){ a.muted=false; } }); }
+function say(text, show=true){
+  if(!text) return;
+  if(show) taskEl.textContent=text;
+  rexEl.classList.remove('talk'); void rexEl.offsetWidth; rexEl.classList.add('talk');
+  if(muted) return;
+  const src=CLIPS[hkey(text)];
+  if(!src){ speakFallback(text); return; }
+  try{ voice.pause(); voice.src=src; voice.currentTime=0; const p=voice.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+}
+function play(n,vol=1){ if(muted) return; const a=SFX[n]; if(!a) return; try{ a.pause(); a.currentTime=0; a.volume=vol; a.play().catch(()=>{}); }catch(e){} }
+const sfx={ move(){play('move',.6)}, collect(){play('collect',.7)}, capture(){play('capture',.6)}, wrong(){play('wrong',.7)}, win(){play('win',.6)}, magic(){play('magic',.6)} };
+
+/* ---------- confetti ---------- */
+const fx=$('fx'), fctx=fx.getContext('2d'); let parts=[], fxRun=false;
+const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function confetti(){ if(reduce) return;
+  fx.width=innerWidth*devicePixelRatio; fx.height=innerHeight*devicePixelRatio;
+  const cols=['#FFC83D','#FF5C8A','#8FC46C','#FFF8E4','#6EC5E9'];
+  for(let i=0;i<140;i++) parts.push({x:innerWidth/2+(Math.random()-.5)*120, y:innerHeight*.45, vx:(Math.random()-.5)*14, vy:-Math.random()*14-4, r:4+Math.random()*6, c:cols[i%5], a:Math.random()*6, life:120+Math.random()*40});
+  if(!fxRun){ fxRun=true; requestAnimationFrame(tick); } }
+function tick(){ const d=devicePixelRatio; fctx.setTransform(d,0,0,d,0,0); fctx.clearRect(0,0,innerWidth,innerHeight);
+  parts.forEach(p=>{ p.vy+=.35; p.vx*=.99; p.x+=p.vx; p.y+=p.vy; p.a+=.2; p.life--; fctx.save(); fctx.translate(p.x,p.y); fctx.rotate(p.a); fctx.fillStyle=p.c; fctx.fillRect(-p.r/2,-p.r/4,p.r,p.r/2); fctx.restore(); });
+  parts=parts.filter(p=>p.life>0&&p.y<innerHeight+40);
+  if(parts.length) requestAnimationFrame(tick); else { fxRun=false; fctx.clearRect(0,0,innerWidth,innerHeight); } }
+
+/* ---------- progress bar ---------- */
+function renderChips(){
+  const el=$('chips'); el.innerHTML='';
+  if(st.screen==='start') return;
+  const P=PARTS[st.part], lbl=document.createElement('span'); lbl.className='partlbl'; lbl.textContent=P.title; el.appendChild(lbl);
+  if(P.engineMode){ if(st.custom){ const f=FOES[st.foe]; const t=document.createElement('span'); t.className='partlbl'; t.textContent=f.skin+' '+'★'.repeat(f.stars); el.appendChild(t); } return; }
+  const n=P.levels.length+(P.quiz?1:0);
+  for(let i=0;i<n;i++){ const s=document.createElement('span'); const isNow=(i<P.levels.length && st.level===i && (st.screen==='play'||st.screen==='intro'||st.screen==='win')) || (i===P.levels.length && st.screen==='quiz');
+    s.className='seg'+(done[st.part][i]?' done':'')+(isNow?' now':''); el.appendChild(s); }
+}
+
+/* ---------- board model ---------- */
+const OPP={w:'b', b:'w'};
+const ORTH=[[1,0],[-1,0],[0,1],[0,-1]], DIAG=[[1,1],[1,-1],[-1,1],[-1,-1]];
+const KN=[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+function sq(s){ return [s.charCodeAt(0)-97, N-parseInt(s.slice(1),10)]; }
+function inside(c,r){ return c>=0&&r>=0&&c<N&&r<N; }
+function at(c,r){ return pieces.find(p=>p.alive&&p.c===c&&p.r===r); }
+function kingOf(col){ return pieces.find(p=>p.alive&&p.type==='king'&&p.color===col); }
+function rays(p,dirs,out){ for(const [dc,dr] of dirs){ let c=p.c+dc, r=p.r+dr; while(inside(c,r)){ out.push([c,r]); if(at(c,r)) break; c+=dc; r+=dr; } } }
+function attacks(p){
+  const out=[];
+  if(p.type==='rook') rays(p,ORTH,out);
+  else if(p.type==='bishop') rays(p,DIAG,out);
+  else if(p.type==='queen') rays(p,ORTH.concat(DIAG),out);
+  else if(p.type==='knight') KN.forEach(([dc,dr])=>{ if(inside(p.c+dc,p.r+dr)) out.push([p.c+dc,p.r+dr]); });
+  else if(p.type==='king') ORTH.concat(DIAG).forEach(([dc,dr])=>{ if(inside(p.c+dc,p.r+dr)) out.push([p.c+dc,p.r+dr]); });
+  else if(p.type==='pawn'){ const f=p.r+(p.color==='w'?-1:1); [-1,1].forEach(dc=>{ if(inside(p.c+dc,f)) out.push([p.c+dc,f]); }); }
+  return out;
+}
+function attacked(c,r,by){ return pieces.some(p=>p.alive&&p.color===by&&attacks(p).some(([a,b])=>a===c&&b===r)); }
+function inCheck(col){ const k=kingOf(col); return !!k&&attacked(k.c,k.r,OPP[col]); }
+function pseudo(p){
+  const res=[], add=(c,r)=>{ const o=at(c,r); if(o&&(o.color===p.color||o.type==='king')) return; res.push({p,c,r,cap:o||null}); };
+  if(p.type==='pawn'){
+    const d=p.color==='w'?-1:1, f=p.r+d, start=p.color==='w'?N-2:1;
+    if(inside(p.c,f)&&!at(p.c,f)){ res.push({p,c:p.c,r:f}); if(p.r===start&&inside(p.c,f+d)&&!at(p.c,f+d)) res.push({p,c:p.c,r:f+d}); }
+    [-1,1].forEach(dc=>{ const c=p.c+dc; if(!inside(c,f)) return; const o=at(c,f); if(o&&o.color!==p.color&&o.type!=='king') res.push({p,c,r:f,cap:o}); });
+    if(epPawn&&epPawn.alive&&epPawn.color!==p.color&&epPawn.r===p.r&&Math.abs(epPawn.c-p.c)===1&&inside(epPawn.c,f)&&!at(epPawn.c,f)) res.push({p,c:epPawn.c,r:f,cap:epPawn,ep:true});
+  } else {
+    attacks(p).forEach(([c,r])=>add(c,r));
+    if(p.type==='king'&&!p.moved&&!inCheck(p.color)){
+      pieces.filter(q=>q.alive&&q.type==='rook'&&q.color===p.color&&!q.moved&&q.r===p.r).forEach(rk=>{
+        const dir=Math.sign(rk.c-p.c); let c=p.c+dir, clear=true;
+        while(c!==rk.c){ if(at(c,p.r)) clear=false; c+=dir; }
+        if(!clear||Math.abs(rk.c-p.c)<3) return;
+        if(attacked(p.c+dir,p.r,OPP[p.color])||attacked(p.c+2*dir,p.r,OPP[p.color])) return;
+        res.push({p,c:p.c+2*dir,r:p.r,castle:{rook:rk,c:p.c+dir}, side:Math.abs(rk.c-p.c)===3?'short':'long'});
+      });
+    }
+  }
+  return res;
+}
+function apply(m){
+  const snap={p:m.p, c:m.p.c, r:m.p.r, moved:m.p.moved, cap:m.cap, rk:m.castle?{p:m.castle.rook,c:m.castle.rook.c,moved:m.castle.rook.moved}:null};
+  if(m.cap) m.cap.alive=false;
+  m.p.c=m.c; m.p.r=m.r; m.p.moved=true;
+  if(m.castle){ m.castle.rook.c=m.castle.c; m.castle.rook.moved=true; }
+  return snap;
+}
+function undo(s){ s.p.c=s.c; s.p.r=s.r; s.p.moved=s.moved; if(s.cap) s.cap.alive=true; if(s.rk){ s.rk.p.c=s.rk.c; s.rk.p.moved=s.rk.moved; } }
+function legal(p){ return pseudo(p).filter(m=>{ const s=apply(m); const ok=!inCheck(p.color); undo(s); return ok; }); }
+function allLegal(col){ return pieces.filter(p=>p.alive&&p.color===col).flatMap(p=>legal(p)); }
+function isMate(col){ return inCheck(col)&&allLegal(col).length===0; }
+
+/* ---------- rendering ---------- */
+function place(el,c,r){ el.style.transform=`translate(${c*100}%, ${r*100}%)`; }
+function tok(cls,html){ const d=document.createElement('div'); d.className='tok '+cls; d.innerHTML=html; layer.appendChild(d); return d; }
+function setGlyph(p){ p.el.querySelector('.g').textContent=GLYPH[p.type]+VS; }
+function buildCells(){
+  document.documentElement.style.setProperty('--n',N);
+  cellsEl.innerHTML='';
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const b=document.createElement('button'); b.className='cell'+((c+r)%2?' dk':''); b.id='cell-'+c+'-'+r;
+    b.setAttribute('aria-label', String.fromCharCode(97+c)+(N-r)); b.addEventListener('click',()=>onCell(c,r)); cellsEl.appendChild(b);
+  }
+}
+function cell(c,r){ return $('cell-'+c+'-'+r); }
+function refresh(){
+  document.querySelectorAll('.cell').forEach(e=>e.classList.remove('legal','cap','castle','sel','danger','check'));
+  moves=(busy||st.screen!=='play'||!sel)?[]:legal(sel);
+  if(st.screen==='play'&&sel&&!busy) cell(sel.c,sel.r).classList.add('sel');
+  moves.forEach(m=>{ const e=cell(m.c,m.r); e.classList.add('legal'); if(m.cap) e.classList.add('cap'); if(m.castle) e.classList.add('castle'); });
+  if(L&&L.danger){ for(let r=0;r<N;r++) for(let c=0;c<N;c++){ const o=at(c,r); if((!o||o.color==='w')&&attacked(c,r,'b')) cell(c,r).classList.add('danger'); } }
+  ['w','b'].forEach(col=>{ const k=kingOf(col); if(k&&inCheck(col)) cell(k.c,k.r).classList.add('check'); });
+  pieces.forEach(p=>{ if(p.el) p.el.classList.toggle('hero', p===sel&&st.screen==='play'); });
+}
+function renderCounter(){
+  counterEl.innerHTML='';
+  if(!L) return;
+  if(L.goal==='items') items.forEach(it=>{ const s=document.createElement('span'); s.textContent=it.taken?(L.after||L.item):L.item; if(!it.taken) s.className='off'; counterEl.appendChild(s); });
+  else if(L.goal==='capture') pieces.filter(p=>p.color==='b').forEach(p=>{ const s=document.createElement('span'); s.className='g'+(p.alive?'':' off'); s.style.fontSize='34px'; s.style.color='#FFF8E4'; s.textContent=GLYPH.pawn+VS; counterEl.appendChild(s); });
+  else if(L.goal==='promote'){ const s=document.createElement('span'); s.textContent='👑'; counterEl.appendChild(s); }
+  if(L.tag){ const t=document.createElement('span'); t.className='tag'; t.textContent=L.tag; counterEl.appendChild(t); }
+}
+function loadLevel(){
+  L=instLevel(st.custom&&PARTS[st.part].engineMode?st.custom:PARTS[st.part].levels[st.level]); N=L.N; st.stage=0; busy=false; epPawn=null; if(aiTimer){ clearTimeout(aiTimer); aiTimer=null; } buildCells(); layer.innerHTML=''; pieces=[]; items=[];
+  const addSet=(set,color)=>Object.entries(set||{}).forEach(([type,list])=>list.forEach(s=>{ const [c,r]=sq(s); const p={type,color,c,r,alive:true,moved:false};
+      p.el=tok(color,(color==='b'&&L.skin&&type==='pawn')?'<span class="g emo">'+L.skin+'</span>':'<span class="g">'+GLYPH[type]+VS+'</span>'); place(p.el,c,r); pieces.push(p); }));
+  addSet(L.w,'w'); addSet(L.b,'b');
+  (L.items||[]).forEach(s=>{ const [c,r]=sq(s); const it={c,r,taken:false,decor:!!L.decor}; it.el=tok('item','<span>'+L.item+'</span>'); place(it.el,c,r); items.push(it); });
+  if(L.goal==='promote'||L.goal==='promoteChoose') for(let c=0;c<N;c++) cell(c,0).classList.add('goal');
+  if(L.ai||L.goal==='promote') for(let c=0;c<N;c++) cell(c,0).classList.add('goal');
+  const [hc,hr]=sq(L.hero); sel=at(hc,hr);
+  renderCounter(); refresh(); renderChips();
+}
+
+/* ---------- random variants ---------- */
+const SYMS=[(c,r,n)=>[c,r],(c,r,n)=>[n-1-c,r],(c,r,n)=>[c,n-1-r],(c,r,n)=>[n-1-c,n-1-r],(c,r,n)=>[r,c],(c,r,n)=>[n-1-r,c],(c,r,n)=>[r,n-1-c],(c,r,n)=>[n-1-r,n-1-c]];
+function instLevel(base){
+  let C=Object.assign({},base);
+  if(base.variants) Object.assign(C,pick(base.variants));
+  if(base.gen) Object.assign(C,base.gen());
+  const n=C.N, sym=C.sym||'mirror';
+  const t=sym==='d4'?pick(SYMS):sym==='mirror'?pick([SYMS[0],SYMS[1]]):SYMS[0];
+  const T=s=>{ if(typeof s!=='string'||!/^[a-h][1-8]$/.test(s)) return s; const c=s.charCodeAt(0)-97, r=n-parseInt(s.slice(1),10); const [c2,r2]=t(c,r,n); return String.fromCharCode(97+c2)+(n-r2); };
+  const TS=o=>{ if(!o) return o; const out={}; Object.entries(o).forEach(([k,v])=>out[k]=v.map(T)); return out; };
+  C.hero=T(C.hero); C.w=TS(C.w); C.b=TS(C.b);
+  ['items','reply','pre'].forEach(k=>{ if(C[k]) C[k]=C[k].map(T); });
+  if(C.target&&/^[a-h][1-8]$/.test(C.target)) C.target=T(C.target);
+  return C;
+}
+function isPassed(p){ return p.type==='pawn'&&!pieces.some(q=>q.alive&&q.color!==p.color&&q.type==='pawn'&&Math.abs(q.c-p.c)<=1&&(p.color==='w'?q.r<p.r:q.r>p.r)); }
+function goalHolds(m){
+  const p=m.p, g=L.goal;
+  if(g==='check') return inCheck('b');
+  if(g==='castle') return !!(m.castle&&(!L.side||m.side===L.side));
+  if(g==='mate') return isMate('b');
+  if(g==='safeCapture') return !!(m.cap&&!attacked(p.c,p.r,'b'));
+  if(g==='safeAll') return !pieces.some(q=>q.alive&&q.color==='w'&&attacked(q.c,q.r,'b'));
+  if(g==='captureType') return !!(m.cap&&m.cap.type===L.target);
+  if(g==='defend'){ const [tc,tr]=sq(L.target), t=at(tc,tr); return !!(t&&t.color==='w'&&attacked(tc,tr,'w')); }
+  if(g==='ep') return !!m.ep;
+  if(g==='fork'){ const tg=(L.targets||['king','rook']).map(t=>pieces.find(q=>q.alive&&q.color==='b'&&q.type===t)); const a=attacks(p); const hit=q=>q&&a.some(([c,r])=>c===q.c&&r===q.r); return p.type===(L.forker||'knight')&&tg.every(hit); }
+  if(L.firstPassed) return isPassed(p);
+  return true;
+}
+
+/* ---------- pawn-battle engine (alpha-beta search) ---------- */
+const FOES=[
+ {skin:'🐱', name:'Котики-малыши', stars:1, depth:0, noise:0,
+  hello:'Против тебя котики-малыши. Они ещё только учатся!', win:'Ура! Ты обыграл котиков!', lose:'Котики успели первыми. Сыграем ещё?'},
+ {skin:'🦄', name:'Единорожки', stars:2, depth:1, noise:60,
+  hello:'Против тебя единорожки. Они немножко думают.', win:'Ура! Ты обыграл единорожек!', lose:'Единорожки успели первыми. Сыграем ещё?'},
+ {skin:'🐰', name:'Зайчики-хитрюшки', stars:3, depth:3, noise:15,
+  hello:'Против тебя зайчики-хитрюшки. Они думают на пару ходов вперёд!', win:'Ура! Ты перехитрил зайчиков!', lose:'Зайчики оказались хитрее. Сыграем ещё?'},
+ {skin:'🦊', name:'Лисички-умницы', stars:4, depth:5, noise:0,
+  hello:'Против тебя лисички-умницы. Будь внимателен!', win:'Ого! Ты обыграл умных лисичек!', lose:'Лисички оказались умнее. Сыграем ещё?'},
+ {skin:'🐉', name:'Великие драконы', stars:5, depth:8, noise:0,
+  hello:'Против тебя великие драконы. Это самые сильные соперники!', win:'Невероятно! Ты победил великих драконов!', lose:'Великие драконы победили. Сыграем ещё?'}
+];
+const ENG={nodes:0, deadline:0, abort:false};
+function engGen(bd,n,side,ep){
+  const out=[], dir=side===1?-1:1, start=side===1?n-2:1, last=side===1?0:n-1;
+  for(let i=0;i<n*n;i++){ if(bd[i]!==side) continue; const c=i%n, r=(i/n)|0, f=r+dir; if(f<0||f>=n) continue;
+    const fi=f*n+c;
+    if(bd[fi]===0){ out.push({from:i,to:fi,promo:f===last,cap:false}); if(r===start){ const f2=f+dir; if(f2>=0&&f2<n&&bd[f2*n+c]===0) out.push({from:i,to:f2*n+c,dbl:fi,promo:f2===last,cap:false}); } }
+    for(const dc of [-1,1]){ const cc=c+dc; if(cc<0||cc>=n) continue; const ti=f*n+cc;
+      if(bd[ti]===-side) out.push({from:i,to:ti,promo:f===last,cap:true,capAt:ti});
+      else if(ep&&ep.sq===ti&&bd[ep.pawn]===-side) out.push({from:i,to:ti,promo:false,cap:true,capAt:ep.pawn,ep:true}); }
+  }
+  return out;
+}
+function engApply(bd,m,side){ const nb=bd.slice(); nb[m.from]=0; if(m.cap) nb[m.capAt]=0; nb[m.to]=side; return nb; }
+function engEval(bd,n,side){
+  let s=0; let wBest=99, bBest=99;
+  for(let i=0;i<n*n;i++){ const v=bd[i]; if(!v) continue; const c=i%n, r=(i/n)|0;
+    if(v===1){ const adv=n-2-r; s+=100+adv*adv*6;
+      if((c>0&&r+1<n&&bd[(r+1)*n+c-1]===1)||(c<n-1&&r+1<n&&bd[(r+1)*n+c+1]===1)) s+=12;
+      let passed=true; for(let rr=0;rr<r&&passed;rr++) for(let cc=Math.max(0,c-1);cc<=Math.min(n-1,c+1);cc++) if(bd[rr*n+cc]===-1){ passed=false; break; }
+      if(passed){ s+=40+(n-r)*18; let steps=r; if(r===n-2&&r>=2&&bd[(r-1)*n+c]===0&&bd[(r-2)*n+c]===0) steps--; let clear=true; for(let rr=0;rr<r;rr++) if(bd[rr*n+c]) clear=false; if(clear) wBest=Math.min(wBest,steps); }
+    } else { const adv=r-1; s-=100+adv*adv*6;
+      if((c>0&&r>0&&bd[(r-1)*n+c-1]===-1)||(c<n-1&&r>0&&bd[(r-1)*n+c+1]===-1)) s-=12;
+      let passed=true; for(let rr=r+1;rr<n&&passed;rr++) for(let cc=Math.max(0,c-1);cc<=Math.min(n-1,c+1);cc++) if(bd[rr*n+cc]===1){ passed=false; break; }
+      if(passed){ s-=40+(r+1)*18; let steps=n-1-r; if(r===1&&n-1-r>=2&&bd[(r+1)*n+c]===0&&bd[(r+2)*n+c]===0) steps--; let clear=true; for(let rr=r+1;rr<n;rr++) if(bd[rr*n+c]) clear=false; if(clear) bBest=Math.min(bBest,steps); }
+    }
+  }
+  if(wBest<99||bBest<99){ const wEff=wBest-(side===1?0.5:0), bEff=bBest-(side===-1?0.5:0); if(wEff<bEff) s+=400; else if(bEff<wEff) s-=400; }
+  return s*side;
+}
+const WIN=100000;
+function engSearch(bd,n,side,ep,depth,alpha,beta,ply,passes){
+  if((++ENG.nodes&1023)===0&&Date.now()>ENG.deadline) ENG.abort=true;
+  if(ENG.abort) return 0;
+  let has=false; for(let i=0;i<n*n;i++) if(bd[i]===side){ has=true; break; }
+  if(!has) return -WIN+ply;
+  const ms=engGen(bd,n,side,ep);
+  if(!ms.length){ if(passes>=1) return 0; if(depth<=0) return engEval(bd,n,side); return -engSearch(bd,n,-side,null,depth-1,-beta,-alpha,ply+1,passes+1); }
+  if(depth<=0) return engEval(bd,n,side);
+  ms.forEach(m=>{ m.o=(m.promo?1000:0)+(m.cap?100:0)+(side===1?-(m.to/n|0):(m.to/n|0)); }); ms.sort((a,b)=>b.o-a.o);
+  let best=-Infinity;
+  for(const m of ms){
+    let v; if(m.promo) v=WIN-ply; else { const nb=engApply(bd,m,side); v=-engSearch(nb,n,-side,m.dbl!==undefined?{sq:m.dbl,pawn:m.to}:null,depth-1,-beta,-alpha,ply+1,0); }
+    if(v>best) best=v; if(v>alpha) alpha=v; if(alpha>=beta) break;
+  }
+  return best;
+}
+function engineMove(foe){
+  const n=N, bd=new Int8Array(n*n); pieces.forEach(p=>{ if(p.alive&&p.type==='pawn') bd[p.r*n+p.c]=p.color==='w'?1:-1; });
+  const ep=(epPawn&&epPawn.alive&&epPawn.color==='w')?{sq:(epPawn.r+1)*n+epPawn.c, pawn:epPawn.r*n+epPawn.c}:null;
+  const ms=engGen(bd,n,-1,ep); if(!ms.length) return null;
+  if(foe.depth===0){ const caps=ms.filter(m=>m.cap||m.promo); return (caps.length&&Math.random()<.5)?pick(caps):pick(ms); }
+  ENG.deadline=Date.now()+1400; ENG.abort=false; ENG.nodes=0;
+  let bestMove=ms[0];
+  for(let d=1; d<=foe.depth; d++){
+    let bm=null, bv=-Infinity;
+    for(const m of ms){ let v; if(m.promo) v=WIN; else { const nb=engApply(bd,m,-1); v=-engSearch(nb,n,1,m.dbl!==undefined?{sq:m.dbl,pawn:m.to}:null,d-1,-Infinity,Infinity,1,0); }
+      v+=Math.random()*foe.noise; if(ENG.abort) break; if(v>bv){ bv=v; bm=m; } }
+    if(ENG.abort) break; if(bm) bestMove=bm;
+    ms.sort((a,b)=>(a===bm?-1:b===bm?1:0));
+  }
+  return bestMove;
+}
+
+/* ---------- input ---------- */
+function onCell(c,r){
+  if(busy||st.screen!=='play') return;
+  unlock();
+  const m=moves.find(m=>m.c===c&&m.r===r);
+  if(m) return doMove(m);
+  const o=at(c,r);
+  if(o&&o===sel){ say(o.type==='pawn'&&!moves.length&&at(o.c,o.r-1)?S_STUCK:RULE[o.type]); return; }
+  if(o&&o.color==='w'){
+    if(L.lock){ say(L.w.knight?'Это наша пешка. А конь умеет через неё перепрыгнуть!':'Это наша пешка.'); return; }
+    sel=o; refresh(); const lm=legal(o); if(L.ai){ if(!lm.length) say(o.type==='pawn'&&at(o.c,o.r-1)?S_STUCK:S_NOMOVE); return; } say(lm.length?RULE[o.type]:(o.type==='pawn'&&at(o.c,o.r-1)?S_STUCK:S_NOMOVE)); return;
+  }
+  sfx.wrong(); if(sel&&sel.el){ sel.el.classList.remove('shake'); void sel.el.offsetWidth; sel.el.classList.add('shake'); }
+  if(!sel) return;
+  if(sel.type==='pawn'&&r>=sel.r) say('Пешка никогда не ходит назад и вбок. Только вперёд!');
+  else if(sel.type==='pawn'&&o&&o.color==='b'&&c===sel.c) say('Прямо пешка не ест. Она ест только наискосок!');
+  else if(sel.type==='king'&&Math.abs(c-sel.c)<=1&&Math.abs(r-sel.r)<=1&&(!o||o.color==='b')) say(S_DANGER);
+  else if(o&&o.color==='b'&&o.type==='king') say('Короля съесть нельзя. Ему можно только поставить шах или мат.');
+  else if(o&&o.color==='b'&&!pseudo(sel).some(m=>m.c===c&&m.r===r)&&sel.type==='queen'&&(c===sel.c||r===sel.r||Math.abs(c-sel.c)===Math.abs(r-sel.r))) say('Там дорогу загораживает фигура. Ферзь не перепрыгивает через фигуры.');
+  else if(o&&o.color==='b') say(S_BLACK);
+  else say(RULE[sel.type]);
+}
+
+function snapshot(){ const a=pieces.map(p=>({p, c:p.c, r:p.r, alive:p.alive, moved:p.moved, type:p.type})); a.ep=epPawn; return a; }
+function restore(snap){ epPawn=snap.ep||null; snap.forEach(s=>{ const p=s.p; p.c=s.c; p.r=s.r; p.alive=s.alive; p.moved=s.moved; if(p.type!==s.type){ p.type=s.type; setGlyph(p); } p.el.classList.remove('gone'); p.el.style.transition=''; place(p.el,p.c,p.r); }); }
+
+function animateTo(p,from,c,r,dur,jump){
+  if(jump&&p.el.animate&&!reduce){
+    const mc=(from.c+c)/2, mr=(from.r+r)/2; p.el.style.transition='none'; place(p.el,c,r);
+    p.el.animate([{transform:`translate(${from.c*100}%, ${from.r*100}%)`},{transform:`translate(${mc*100}%, ${mr*100-70}%) scale(1.25)`},{transform:`translate(${c*100}%, ${r*100}%)`}],{duration:dur,easing:'ease-in-out'});
+  } else { p.el.style.transition=`transform ${dur}ms cubic-bezier(.3,.8,.3,1.1)`; place(p.el,c,r); }
+}
+function doMove(m){
+  busy=true; const snap=snapshot(); const p=m.p; const from={c:p.c,r:p.r};
+  const path=[]; if(L.slideCollect){ const dc=Math.sign(m.c-p.c), dr=Math.sign(m.r-p.r); let c=p.c, r=p.r; while(c!==m.c||r!==m.r){ c+=dc; r+=dr; path.push([c,r]); } } else path.push([m.c,m.r]);
+  apply(m); epPawn=(p.type==='pawn'&&Math.abs(m.r-from.r)===2)?p:null; refresh();
+  const steps=Math.max(Math.abs(m.c-from.c),Math.abs(m.r-from.r));
+  const dur=p.type==='knight'?560:Math.min(260+steps*90,700);
+  sfx.move(); animateTo(p,from,m.c,m.r,dur,p.type==='knight');
+  if(m.castle){ const rk=m.castle.rook; setTimeout(()=>{ rk.el.style.transition='transform 420ms cubic-bezier(.3,.8,.3,1.1)'; place(rk.el,rk.c,rk.r); if(rk.el.animate&&!reduce) rk.el.animate([{scale:1},{scale:1.25},{scale:1}],{duration:420}); }, dur*.6); }
+  path.forEach(([c,r],i)=>{ const it=items.find(t=>!t.taken&&!t.decor&&t.c===c&&t.r===r); if(it){ it.taken=true; setTimeout(()=>collect(it), dur*(i+1)/path.length*.85); } });
+  if(m.cap) setTimeout(()=>{ m.cap.el.classList.add('gone'); sfx.capture(); renderCounter(); }, dur*.8);
+  const myL=L; setTimeout(()=>{ if(L===myL) afterMove(m,snap); }, dur+(m.castle?420:60));
+}
+function collect(it){ sfx.collect(); if(L.after){ it.el.innerHTML='<span>'+L.after+'</span>'; it.el.classList.add('baby'); } it.el.classList.add('gone'); renderCounter(); }
+function failBack(msg,snap){
+  sfx.wrong(); say(msg); const myL=L;
+  setTimeout(()=>{ if(L!==myL) return; restore(snap); busy=false; refresh(); renderCounter(); }, 1300);
+}
+function afterMove(m,snap){
+  const p=m.p;
+  // promotion
+  if(p.type==='pawn'&&p.r===(p.color==='w'?0:N-1)){
+    if(L.goal==='promoteChoose') return showPromo(p);
+    items.forEach(it=>it.el.classList.add('gone'));
+    sfx.magic(); p.type='queen'; setGlyph(p);
+    if(p.el.animate) p.el.animate([{filter:'brightness(1)'},{filter:'brightness(2) drop-shadow(0 0 12px #FFC83D)'},{filter:'brightness(1)'}],{duration:900});
+    if(L.goal==='promote'||L.ai) return winLevel(900);
+  }
+  const g=L.goal;
+  if(g==='items'&&items.every(i=>i.taken)) return winLevel();
+  if(g==='capture'&&pieces.every(q=>q.color!=='b'||!q.alive)) return winLevel();
+  if(g==='escape') return winLevel();
+  if(g==='check'||g==='castle'||g==='mate'||g==='captureType'||g==='defend'||g==='ep'||g==='safeAll'){ return goalHolds(m) ? winLevel() : failBack(L.fail,snap); }
+  if(g==='items'&&L.safeLand&&attacked(p.c,p.r,'b')) return failBack(L.fail,snap);
+  if(g==='safeCapture'){ if(goalHolds(m)) return winLevel(); return failBack(m.cap?L.failProt:L.fail,snap); }
+  if(L.firstPassed&&st.stage===0){ if(!isPassed(p)) return failBack(L.fail,snap); st.stage=1; say(L.mid); }
+  if(g==='fork'){
+    if(st.stage===0){
+      if(goalHolds(m)){
+        st.stage=1; say(L.mid); refresh(); const myL=L;
+        setTimeout(()=>{ if(L!==myL) return; const [fc,fr]=sq(L.reply[0]), [tc,tr]=sq(L.reply[1]); const bk=at(fc,fr);
+          if(bk){ const from={c:bk.c,r:bk.r}; bk.c=tc; bk.r=tr; bk.moved=true; sfx.move(); animateTo(bk,from,tc,tr,450,false); }
+          setTimeout(()=>{ if(L!==myL) return; busy=false; refresh(); say(L.task2); }, 600);
+        }, 3200);
+        return;
+      }
+      return failBack(L.fail,snap);
+    } else {
+      if(m.cap) return winLevel();
+      return failBack(L.task2,snap);
+    }
+  }
+  if(L.ai){ aiTimer=setTimeout(aiTurn,650); return; }
+  busy=false; refresh();
+  if(sel&&sel.type==='pawn'&&at(sel.c,sel.r-1)&&moves.some(mm=>mm.cap)) say('Ой, дорога закрыта! Съешь чёрную фигуру наискосок.');
+}
+function aiScore(m){
+  let s=Math.random()*(L.noise==null?20:L.noise);
+  if(m.p.type==='pawn'){ if(m.r===N-1) s+=1000; s+=m.r*4; }
+  if(m.cap){ s+=60; if(m.cap.type==='pawn') s+=(N-1-m.cap.r)*6; }
+  if(m.p.type==='king'){ const t=pieces.find(q=>q.alive&&q.color==='w'); if(t) s-=Math.max(Math.abs(m.c-t.c),Math.abs(m.r-(t.r-1)))*20; }
+  const sv=apply(m); if(attacked(m.c,m.r,'w')&&!attacked(m.c,m.r,'b')) s-=45; undo(sv);
+  return s;
+}
+function aiTurn(){
+  aiTimer=null; if(!L||!L.ai||st.screen!=='play') return; const myL=L;
+  if(!pieces.some(q=>q.alive&&q.color==='b')) return winLevel();
+  const ms=allLegal('b');
+  if(!ms.length){ if(allLegal('w').length){ say(S_BPASS); busy=false; refresh(); return; } return loseLevel(S_DRAW,'Ничья!'); }
+  let best=ms[0], bs=-1e9;
+  if(L.foe!=null){ const em=engineMove(FOES[L.foe]); if(em) best=ms.find(m=>m.p.r*N+m.p.c===em.from&&m.r*N+m.c===em.to)||ms[0]; }
+  else ms.forEach(m=>{ const v=aiScore(m); if(v>bs){ bs=v; best=m; } });
+  const p=best.p, from={c:p.c,r:p.r};
+  apply(best); epPawn=(p.type==='pawn'&&Math.abs(best.r-from.r)===2)?p:null;
+  sfx.move(); animateTo(p,from,best.c,best.r,450,false);
+  if(best.cap) setTimeout(()=>{ best.cap.el.classList.add('gone'); sfx.capture(); if(best.cap===sel) sel=null; }, 380);
+  setTimeout(()=>{ if(L!==myL) return;
+    if(p.type==='pawn'&&p.r===N-1){ p.type='queen'; setGlyph(p); return loseLevel(L.lose||S_LOSE); }
+    const wm=allLegal('w');
+    if(!pieces.some(q=>q.alive&&q.color==='w')) return loseLevel(L.lose||S_LOSE);
+    if(!pieces.some(q=>q.alive&&q.color==='b')) return winLevel();
+    if(!wm.length){ if(allLegal('b').length){ say(S_WPASS); aiTimer=setTimeout(aiTurn,1800); return; } return loseLevel(S_DRAW,'Ничья!'); }
+    if(!sel||!sel.alive||!legal(sel).length){ sel=pieces.find(q=>q.alive&&q.color==='w'&&legal(q).length)||null; }
+    busy=false; refresh();
+  }, 520);
+}
+function loseLevel(msg,head){
+  busy=true; refresh(); sfx.wrong();
+  setTimeout(()=>{ st.screen='lose'; openCard(`<div class="stars">🐉💭</div><h2>${head||'Ой!'}</h2><p>${msg}</p><button class="cta" id="go">Ещё раз</button>`); say(msg,true);
+    $('go').onclick=()=>{ closeCard(); loadLevel(); startPlay(); };
+    if(PARTS[st.part].engineMode){ const b=document.createElement('button'); b.className='cta alt'; b.textContent='Другой соперник'; b.onclick=showFoeMenu; card.appendChild(b); } }, 500);
+}
+function startPlay(){
+  st.screen='play'; renderChips();
+  if(L.pre){ busy=true; refresh(); const [fc,fr]=sq(L.pre[0]), [tc,tr]=sq(L.pre[1]); const bp=at(fc,fr); const myL=L;
+    setTimeout(()=>{ if(L!==myL) return; if(bp){ bp.c=tc; bp.r=tr; bp.moved=true; epPawn=bp; sfx.move(); animateTo(bp,{c:fc,r:fr},tc,tr,600,false); }
+      setTimeout(()=>{ if(L!==myL) return; busy=false; refresh(); say(L.task); }, 700); }, 400);
+    return; }
+  refresh(); say(L.task);
+}
+function winLevel(delay=0){
+  busy=true; refresh();
+  if(PARTS[st.part].engineMode) done[3][st.foe]=true; else done[st.part][st.level]=true; saveDone(); renderChips();
+  setTimeout(()=>{ sfx.win(); confetti(); showWin(); }, delay+350);
+}
+
+/* ---------- screens ---------- */
+function openCard(html){ card.innerHTML=html; overlay.hidden=false; card.style.animation='none'; void card.offsetWidth; card.style.animation=''; }
+function closeCard(){ overlay.hidden=true; }
+function showStart(){
+  st.screen='start'; st.custom=null; renderChips(); L=null; N=6; buildCells(); layer.innerHTML=''; pieces=[]; counterEl.innerHTML='';
+  const tick=i=>done[i].filter(Boolean).length>=PARTS[i].levels.length?' ✓':'';
+  openCard(`<div class="row"><span class="dino">🦄</span><span class="g">${GLYPH.king+VS}</span><span class="g">${GLYPH.knight+VS}</span><span class="dino">🐉</span></div>
+    <h1>Волшебные шахматы</h1>
+    <div class="parts">
+      <button class="cta" id="p0">Часть 1${tick(0)}<small>Знакомство с фигурами · 5 заданий</small></button>
+      <button class="cta alt" id="p1">Часть 2${tick(1)}<small>Шах, мат и рокировка · 10 заданий</small></button>
+      <button class="cta alt" id="p2">Часть 3${tick(2)}<small>Защита, вилки и пешечный бой · 20 заданий</small></button>
+      <button class="cta alt" id="p3">Часть 4<small>Пешечный бой с котиками, единорожками и драконами · 5 уровней</small></button>
+    </div>
+    <p class="small">Для взрослых: включите звук, задания читает дракончик Искра. Расстановка каждый раз немного новая, так что задания нужно решать, а не запоминать. Ребёнок нажимает на розовые кружочки, и фигура туда ходит. Нажатие на фигуру повторяет, как она ходит. Во второй и третьей частях можно выбирать разные фигуры, а в пешечном бою чёрными ходит компьютер.</p>`);
+  taskEl.textContent='Привет! Я дракончик Искра.';
+  $('p0').onclick=()=>{ unlock(); startPart(0); };
+  $('p1').onclick=()=>{ unlock(); startPart(1); };
+  $('p2').onclick=()=>{ unlock(); startPart(2); };
+  $('p3').onclick=()=>{ unlock(); startPart(3); };
+}
+function startPart(i){ st.part=i; if(PARTS[i].engineMode) return showFoeMenu(); showIntro(0); }
+let foeOpt={N:6, hints:true};
+function showFoeMenu(){
+  st.part=3; st.screen='menu'; renderChips(); try{ const o=JSON.parse(localStorage.getItem('magic-chess-foe')||'null'); if(o) foeOpt=Object.assign(foeOpt,o); }catch(e){}
+  const draw=()=>{
+    openCard(`<h2>Пешечный бой</h2><p>Выбери соперника.</p>
+      <div class="opts"><button class="opt ${foeOpt.N===6?'on':''}" id="n6">Доска 6 × 6</button><button class="opt ${foeOpt.N===8?'on':''}" id="n8">Доска 8 × 8</button><button class="opt ${foeOpt.hints?'on':''}" id="hn">Подсказки ${foeOpt.hints?'вкл':'выкл'}</button></div>
+      <div class="foes">${FOES.map((f,i)=>`<button class="foe" data-i="${i}"><span class="em">${f.skin}</span><span class="nm">${f.name}${done[3][i]?' ✓':''}</span><span class="st">${'★'.repeat(f.stars)}${'☆'.repeat(5-f.stars)}</span></button>`).join('')}</div>
+      <button class="cta alt" id="home2">На главный экран</button>`);
+    const save=()=>{ try{ localStorage.setItem('magic-chess-foe',JSON.stringify(foeOpt)); }catch(e){} };
+    $('n6').onclick=()=>{ foeOpt.N=6; save(); draw(); }; $('n8').onclick=()=>{ foeOpt.N=8; save(); draw(); }; $('hn').onclick=()=>{ foeOpt.hints=!foeOpt.hints; save(); draw(); };
+    $('home2').onclick=showStart;
+    card.querySelectorAll('.foe').forEach(b=>b.onclick=()=>{ unlock(); startFoe(+b.dataset.i); });
+  };
+  draw(); taskEl.textContent='Пешечный бой! Выбери соперника.'; say('Пешечный бой! Выбери соперника.',false);
+}
+function startFoe(i){
+  const n=foeOpt.N, f=FOES[i], files='abcdefgh'.slice(0,n).split('');
+  st.part=3; st.level=0; st.foe=i;
+  st.custom={N:n, sym:'none', hero:(n===6?'c':'e')+'2', w:{pawn:files.map(c=>c+'2')}, b:{pawn:files.map(c=>c+(n-1))}, goal:'battle', ai:true, foe:i, skin:f.skin, danger:foeOpt.hints, tag:f.name, task:f.hello, win:f.win, lose:f.lose, pic:f.skin+'🏆'};
+  closeCard(); loadLevel(); startPlay();
+}
+function showIntro(i){
+  st.level=i; st.screen='intro'; loadLevel();
+  const P=PARTS[st.part], hero=sel?sel.type:'king';
+  taskEl.textContent=P.name;
+  openCard(`<div class="small">${P.title} · задание ${i+1} из ${P.levels.length}</div>
+    <div class="bigpiece g">${GLYPH[hero]+VS}</div>
+    ${L.tag?`<h2>${L.tag[0].toUpperCase()+L.tag.slice(1)}</h2>`:`<h2>${NAME[hero]}</h2>`}
+    <p>${L.intro}</p>
+    <button class="cta" id="go">Поехали!</button>`);
+  say(L.intro,false);
+  $('go').onclick=()=>{ unlock(); closeCard(); startPlay(); };
+}
+function showWin(){
+  st.screen='win'; renderChips();
+  if(PARTS[st.part].engineMode){ openCard(`<div class="stars">${L.pic}</div><h2>Ура!</h2><p>${L.win}</p><div class="parts"><button class="cta" id="again">Ещё раз</button><button class="cta alt" id="menu">Другой соперник</button></div>`); say(L.win,true); $('again').onclick=()=>startFoe(st.foe); $('menu').onclick=showFoeMenu; return; }
+  const P=PARTS[st.part], last=st.level===P.levels.length-1;
+  openCard(`<div class="stars">${L.pic||'⭐'}</div><h2>Ура!</h2><p>${L.win}</p><button class="cta" id="go">${last?(P.quiz?'Проверка!':'Финал!'):'Дальше'}</button>`);
+  say(L.win,true);
+  $('go').onclick=()=>{ if(last){ if(P.quiz) showQuiz(0); else showFinal(); } else showIntro(st.level+1); };
+}
+function showPromo(p){
+  st.screen='promo';
+  const opts=['queen','rook','bishop','knight'];
+  card.style.setProperty('--qn',4);
+  openCard(`<div class="small">Превращение пешки</div><h2 style="font-size:26px">${L.choose}</h2>
+    <div class="quizgrid">${opts.map(t=>`<button class="qbtn" data-t="${t}" aria-label="${NAME[t]}"><span class="g">${GLYPH[t]+VS}</span></button>`).join('')}</div>
+    <div class="fb" id="fb"></div>`);
+  say(L.choose,true); sfx.magic();
+  let lock=false;
+  card.querySelectorAll('.qbtn').forEach(b=>b.onclick=()=>{ if(lock) return; lock=true; const t=b.dataset.t; b.classList.add('yes');
+    p.type=t; setGlyph(p); items.forEach(it=>it.el.classList.add('gone'));
+    $('fb').textContent=PROMO[t]; say(PROMO[t],false); sfx.collect();
+    setTimeout(()=>{ closeCard(); st.screen='play'; if(p.el.animate) p.el.animate([{filter:'brightness(1)'},{filter:'brightness(2) drop-shadow(0 0 12px #FFC83D)'},{filter:'brightness(1)'}],{duration:900}); winLevel(900); }, 2200);
+  });
+}
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function showQuiz(k){
+  st.screen='quiz'; renderChips();
+  const P=PARTS[st.part], Q=P.quiz[k], order=shuffle(P.quizSet);
+  card.style.setProperty('--qn', order.length>5?3:order.length);
+  openCard(`<div class="small">Вопрос ${k+1} из ${P.quiz.length}</div><div class="rex" style="font-size:48px">🐉</div>
+    <h2 style="font-size:26px">${Q.q}</h2>
+    <div class="quizgrid">${order.map(t=>`<button class="qbtn" data-t="${t}" aria-label="${NAME[t]}"><span class="g">${GLYPH[t]+VS}</span></button>`).join('')}</div>
+    <div class="fb" id="fb"></div>`);
+  taskEl.textContent=Q.q; say(Q.q,false);
+  let lock=false;
+  card.querySelectorAll('.qbtn').forEach(b=>b.onclick=()=>{
+    if(lock) return; unlock(); const t=b.dataset.t;
+    if(t===Q.a){ lock=true; b.classList.add('yes'); sfx.collect(); $('fb').textContent=RIGHT[t]; say(RIGHT[t],false);
+      setTimeout(()=>{ if(k+1<P.quiz.length) showQuiz(k+1); else { done[st.part][P.levels.length]=true; saveDone(); showFinal(); } }, 1700); }
+    else { b.classList.remove('no'); void b.offsetWidth; b.classList.add('no'); sfx.wrong(); $('fb').textContent=WRONG[t]; say(WRONG[t],false); }
+  });
+}
+function showFinal(){
+  st.screen='final'; renderChips(); sfx.win(); confetti();
+  const P=PARTS[st.part], txt=P.final, set=st.part===0?['rook','bishop','queen','knight','pawn']:st.part===1?['king','queen','rook','bishop','knight','pawn']:['pawn','pawn','pawn','pawn'];
+  openCard(`<div class="row"><span class="dino">🦄</span>${set.map(t=>`<span class="g">${GLYPH[t]+VS}</span>`).join('')}<span class="dino">🐉</span></div>
+    <h1>${P.finalTitle}</h1><p>${txt}</p>
+    <div class="parts">
+      ${st.part<PARTS.length-1?`<button class="cta" id="next">${PARTS[st.part+1].title}: ${PARTS[st.part+1].name.toLowerCase()}</button>`:''}
+      <button class="cta alt" id="home">На главный экран</button>
+    </div>`);
+  taskEl.textContent='Ты молодец!'; say(txt,false);
+  if($('next')) $('next').onclick=()=>startPart(st.part+1);
+  $('home').onclick=showStart;
+}
+
+/* ---------- controls ---------- */
+$('btnRepeat').onclick=()=>{ unlock(); if(st.screen==='play') say(st.stage===1&&L.task2?L.task2:L.task); else say(taskEl.textContent,false); };
+$('btnRestart').onclick=()=>{ if(st.screen!=='play'||(busy&&!L.ai)) return; loadLevel(); startPlay(); };
+$('btnHome').onclick=()=>{ if(aiTimer){ clearTimeout(aiTimer); aiTimer=null; } try{voice.pause();}catch(e){} showStart(); };
+$('btnSound').onclick=()=>{ muted=!muted; if(muted){ try{voice.pause();}catch(e){} if(canSpeak) try{speechSynthesis.cancel();}catch(e){} } $('btnSound').classList.toggle('off',muted); $('btnSound').setAttribute('aria-label',muted?'Включить звук':'Выключить звук'); };
+
+
+showStart();
+})();
+</script>
+
+</body>
+</html>

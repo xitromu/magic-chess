@@ -1,0 +1,11 @@
+numpy
+scipy
+soundfile
+librosa
+lameenc
+transformers>=4.44
+accelerate
+huggingface_hub
+omegaconf
+tqdm
+ruaccent

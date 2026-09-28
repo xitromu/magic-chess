@@ -1,0 +1,14 @@
+# собирается командой python build.py
+dist/
+
+# окружение Python и кэш
+.venv/
+__pycache__/
+
+# рабочие файлы озвучки (результат переносится в game/clips.json)
+voicekit/out/
+voicekit/проба/
+voicekit/Волшебные-шахматы*.html
+
+# запись голоса — личное, в историю не кладём
+voicekit/образец.wav
