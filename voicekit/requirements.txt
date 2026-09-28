@@ -3,9 +3,10 @@ scipy
 soundfile
 librosa
 lameenc
-transformers>=4.44
+transformers>=4.56
 accelerate
 huggingface_hub
 omegaconf
 tqdm
 ruaccent
+sounddevice

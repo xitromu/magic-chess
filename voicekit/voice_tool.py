@@ -22,6 +22,10 @@ from pathlib import Path
 
 import numpy as np
 
+# кэш моделей PyTorch (Silero) — рядом со скриптом: C-шный fopen в torch на Windows
+# не открывает файлы по пути с кириллицей (C:\Users\Дмитрий\.cache\...)
+os.environ.setdefault("TORCH_HOME", str(Path(__file__).resolve().parent / ".cache" / "torch"))
+
 # ---------------------------------------------------------------- ключ фразы (как в игре)
 def hkey(s: str) -> str:
     """Тот же хеш, что в JS игры: djb2-вариант по UTF-16 code units."""
@@ -121,12 +125,10 @@ class F5Engine:
     """F5-TTS с русским чекпойнтом: самое живое звучание, голос копируется с вашего образца ref.wav (5–12 с).
     Ударения расставляет RUAccent (+ ваш stress.txt)."""
     def __init__(self, args, device):
-        from huggingface_hub import snapshot_download
-        repo_dir = Path(snapshot_download(args.f5_repo))
-        ckpt = args.f5_ckpt or self._find(repo_dir, "*.safetensors") or self._find(repo_dir, "*.pt")
-        vocab = args.f5_vocab or self._find(repo_dir, "vocab.txt")
-        if not ckpt or not vocab:
-            sys.exit(f"В {repo_dir} не нашёлся чекпойнт или vocab.txt — укажите --f5-ckpt и --f5-vocab вручную.")
+        from huggingface_hub import hf_hub_download
+        # в репозитории много версий по 1–5 ГБ — качаем только нужные два файла
+        get = lambda f: f if Path(f).exists() else hf_hub_download(args.f5_repo, f)
+        ckpt, vocab = get(args.f5_ckpt), get(args.f5_vocab)
         print(f"[f5] чекпойнт: {ckpt}\n[f5] словарь: {vocab}")
         from f5_tts.api import F5TTS
         try:
@@ -149,11 +151,6 @@ class F5Engine:
         except Exception as e:
             print("[ruaccent] не загрузился, ударения только из stress.txt:", e)
             self.acc = None
-
-    @staticmethod
-    def _find(root, pattern):
-        c = sorted(root.rglob(pattern), key=lambda p: (("v1" not in str(p).lower()), -p.stat().st_mtime))
-        return c[0] if c else None
 
     def variants(self, text, stress):
         t = clean_for_tts(text)
@@ -187,7 +184,7 @@ class Checker:
         import torch
         from transformers import pipeline
         self.pipe = pipeline("automatic-speech-recognition", model=model_name,
-                             torch_dtype=torch.float16 if device == "cuda" else torch.float32, device=device)
+                             dtype=torch.float16 if device == "cuda" else torch.float32, device=device)
         print(f"[asr] {model_name}")
 
     def __call__(self, y, sr):
@@ -262,6 +259,28 @@ def embed_into_html(html_path, clips):
     out.write_text(s2, encoding="utf-8")
     return out
 
+# ---------------------------------------------------------------- журнал
+class _Tee:
+    """Дублирует вывод в окно и в файл журнала: окно — для человека, журнал — чтобы следить со стороны."""
+    def __init__(self, stream, log):
+        self.stream, self.log = stream, log
+
+    def write(self, s):
+        self.stream.write(s); self.log.write(s); self.log.flush()
+        return len(s)
+
+    def flush(self):
+        self.stream.flush(); self.log.flush()
+
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
+
+def start_log(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    log = open(path, "a", encoding="utf-8")
+    log.write(f"\n===== {time.strftime('%Y-%m-%d %H:%M:%S')}  {' '.join(sys.argv)}\n")
+    sys.stdout, sys.stderr = _Tee(sys.stdout, log), _Tee(sys.stderr, log)
+
 # ---------------------------------------------------------------- главный цикл
 def main():
     ap = argparse.ArgumentParser(description="Озвучка фраз игры с проверкой распознаванием речи")
@@ -272,8 +291,8 @@ def main():
     ap.add_argument("--speaker", default="xenia", help="голос Silero: xenia, kseniya, baya, aidar, eugene")
     ap.add_argument("--takes", type=int, default=5, help="сколько дублей пробовать на фразу (для F5)")
     ap.add_argument("--good", type=float, default=0.97, help="оценка, после которой дальше не пробуем")
-    ap.add_argument("--pitch", type=float, default=1.12, help="выше голос: 1.0 — как есть, 1.15 — мультяшнее")
-    ap.add_argument("--tempo", type=float, default=0.95, help="темп речи: меньше 1 — медленнее")
+    ap.add_argument("--pitch", type=float, default=1.0, help="выше голос: 1.0 — как есть; другие значения дают «трубный» призвук")
+    ap.add_argument("--tempo", type=float, default=1.0, help="темп речи: меньше 1 — медленнее; не 1.0 — «трубный» призвук (для F5 лучше --f5-speed)")
     ap.add_argument("--stress", default="stress.txt", help="словарь ударений")
     ap.add_argument("--out", default="out")
     ap.add_argument("--clips-in", help="существующий clips.json игры: звуки игры (sfx_*) и готовые фразы сохранятся")
@@ -287,9 +306,12 @@ def main():
     f5.add_argument("--ref-text", help="точный текст образца")
     f5.add_argument("--f5-repo", default="Misha24-10/F5-TTS_RUSSIAN", help="репозиторий Hugging Face с русским чекпойнтом")
     f5.add_argument("--f5-model", default="F5TTS_v1_Base")
-    f5.add_argument("--f5-ckpt"); f5.add_argument("--f5-vocab")
+    f5.add_argument("--f5-ckpt", default="F5TTS_v1_Base_v2/model_last_inference.safetensors",
+                    help="файл модели в репозитории или путь на диске")
+    f5.add_argument("--f5-vocab", default="F5TTS_v1_Base/vocab.txt", help="словарь модели в репозитории или путь на диске")
     f5.add_argument("--f5-speed", type=float, default=0.95)
     args = ap.parse_args()
+    start_log(Path(args.out) / "run.log")
 
     phrases = phrases_from_txt(args.phrases)
     if args.from_html:
@@ -320,6 +342,8 @@ def main():
 
     def needs(text):
         k = hkey(text)
+        if prev.get(k, {}).get("engine") == "voice":
+            return False                    # начитано человеком (record_phrases.py) — не трогаем
         if args.only:
             return args.only.lower() in text.lower()
         if args.redo_below is not None:

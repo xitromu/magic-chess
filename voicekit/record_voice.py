@@ -127,7 +127,7 @@ def main():
         print(f"\nСохранено: {wav.resolve()}  и  {wav.with_suffix('.txt').name}")
         print("Для озвучки (после установки F5: setup_windows.bat f5):")
         print(f'  python voice_tool.py --from-html Волшебные-шахматы.html --engine f5 '
-              f'--ref-audio {wav.name} --ref-text "{args.text}" --pitch 1.05')
+              f'--ref-audio {wav.name} --ref-text "{args.text}"')
         return
 
 

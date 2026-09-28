@@ -4,10 +4,11 @@ dist/
 # окружение Python и кэш
 .venv/
 __pycache__/
+voicekit/.cache/
 
 # рабочие файлы озвучки (результат переносится в game/clips.json)
 voicekit/out/
-voicekit/проба/
+voicekit/проба*/
 voicekit/Волшебные-шахматы*.html
 
 # запись голоса — личное, в историю не кладём

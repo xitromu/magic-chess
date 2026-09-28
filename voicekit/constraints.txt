@@ -1,0 +1,5 @@
+# PyTorch 2.8 — последняя версия, где torchaudio читает wav без системного FFmpeg
+# (с 2.9 torchaudio.load работает через torchcodec, которому на Windows нужен FFmpeg).
+# Сборка cu128 поддерживает RTX 50xx (Blackwell).
+torch==2.8.0
+torchaudio==2.8.0
